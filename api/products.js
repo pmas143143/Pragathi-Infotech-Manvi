@@ -1,0 +1,9 @@
+const {db,ensureSchema,json,body,requireAuth,requireCsrf}=require('./_lib/auth');
+module.exports=async function(req,res){try{const sql=db();await ensureSchema(sql);
+ if(req.method==='GET'){const rows=await sql`SELECT id,name,price,configuration,image_data FROM products WHERE active=true ORDER BY id DESC`;return json(res,200,{ok:true,products:rows});}
+ const u=await requireAuth(req,res);if(!u)return;if(!requireCsrf(req,res))return;
+ if(req.method==='POST'){const b=await body(req),name=String(b.name||'').trim();if(!name)return json(res,400,{ok:false,error:'Product name is required.'});const image=String(b.image_data||''); if(image.length>2500000)return json(res,413,{ok:false,error:'Product image is too large. Please use a JPG or PNG under 2 MB.'}); await sql`INSERT INTO products(name,price,configuration,image_data) VALUES(${name},${String(b.price||'Contact Us')},${String(b.configuration||'')},${image})`;return json(res,200,{ok:true});}
+ if(req.method==='PUT'){const id=Number(req.query.id),b=await body(req),name=String(b.name||'').trim();if(!id||!name)return json(res,400,{ok:false,error:'Product name is required.'});const image=String(b.image_data||''); if(image.length>2500000)return json(res,413,{ok:false,error:'Product image is too large. Please use a JPG or PNG under 2 MB.'}); await sql`UPDATE products SET name=${name},price=${String(b.price||'Contact Us')},configuration=${String(b.configuration||'')},image_data=${image} WHERE id=${id}`;return json(res,200,{ok:true});}
+ if(req.method==='DELETE'){const id=Number(req.query.id);if(!id)return json(res,400,{ok:false,error:'Invalid product id.'});await sql`UPDATE products SET active=false WHERE id=${id}`;return json(res,200,{ok:true});}
+ return json(res,405,{ok:false,error:'Method not allowed'});
+}catch(e){console.error(e);return json(res,500,{ok:false,error:e.message||'Server error'});}};
